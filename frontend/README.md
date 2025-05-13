@@ -31,6 +31,27 @@ export default tseslint.config({
 })
 ```
 
+## Supabase Email OTP Authentication
+
+This application supports login via Supabase Email OTP. To enable authentication:
+
+1. Create a `.env` file in the project root with:
+   ```
+   VITE_SUPABASE_URL=your-supabase-url
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
+2. Install the Supabase client:
+   ```bash
+   cd frontend
+   npm install @supabase/supabase-js
+   ```
+3. Run the dev server:
+   ```bash
+   npm run dev
+   ```
+
+When you open the app, you'll be prompted to enter your email. You'll receive an OTP in your email, which you can then enter to sign in.
+
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
 ```js
