@@ -93,7 +93,7 @@ function App() {
     try {
       if (isBulkMode) {
         // QA on uploaded Excel data
-        const res = await axios.post('http://localhost:8000/ask', {
+        const res = await axios.post('/ask', {
           question: input,
           table: uploadedRows
         });
@@ -102,7 +102,7 @@ function App() {
         setSessions(prev => prev.map((sess, idx) => idx === currentSessionIndex ? { ...sess, messages: newMessagesBot } : sess));
       } else {
         // Single description HSC lookup
-        const res = await axios.post('http://localhost:8000/get-hsc', { description: input });
+        const res = await axios.post('/get-hsc', { description: input });
         const reply: Message = {
           role: 'bot',
           content: `The HSC code for \"${res.data.description}\" is ${res.data.hsc_code}.`
@@ -145,7 +145,7 @@ function App() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await axios.post('http://localhost:8000/upload-excel', formData, {
+      const res = await axios.post('/upload-excel', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const { filename, rows } = res.data as { filename: string; rows: Array<{ description: string; hsc_code: string; confidence?: number }>; };
