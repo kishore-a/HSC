@@ -4,7 +4,10 @@ import ChatBubble from './components/ChatBubble';
 import Spinner from './components/Spinner';
 import { useAuth } from './AuthContext'
 import Login from './components/Login'
+import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import Footer from './components/Footer';
+import AdvancedSearch from './components/AdvancedSearch';
 
 // Types for Excel QA and chat sessions
 interface TableRow { description: string; hsc_code: string; confidence: number; }
@@ -23,15 +26,13 @@ interface Message {
 }
 
 function App() {
-  const { session, signOut } = useAuth()
-  // redirect to login if not authenticated
-  if (!session) {
-    return <Login />
-  }
+  const { session, signOut } = useAuth();
+  const navigate = useNavigate();
+  // initial chat session setup
   const initialSession: ChatSession = {
     id: Date.now().toString(),
     name: 'HSC code for product',
-    messages: [ { role: 'bot', content: 'Hi! Describe a product and I’ll find its HSC code.' } ],
+    messages: [{ role: 'bot', content: 'Hi! Describe a product and I’ll find its HSC code.' }],
     uploadedRows: []
   };
   const [sessions, setSessions] = useState<ChatSession[]>([initialSession]);
@@ -41,6 +42,12 @@ function App() {
   const [darkMode, setDarkMode] = useState<boolean>(false);
   // Sidebar open/close state for toggling
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
+  // Navigation state for switching between chat and advanced search
+  const [currentView, setCurrentView] = useState<'chat' | 'advanced'>('chat');
+  // redirect to login if not authenticated
+  if (!session) {
+    return <Login />;
+  }
 
   const theme = {
     background: darkMode ? '#343541' : '#f7f7f8',
@@ -52,7 +59,7 @@ function App() {
     buttonBackground: darkMode ? '#10a37f' : '#007aff',
     buttonColor: '#ffffff'
   };
-  // always show chat panel
+  // Chat is always visible once authenticated
   const chatStarted = true;
   // Current chat session data
   const currentSession = sessions[currentSessionIndex];
@@ -105,12 +112,13 @@ function App() {
         const res = await axios.post('/get-hsc', { description: input });
         const reply: Message = {
           role: 'bot',
-          content: `The HSC code for \"${res.data.description}\" is ${res.data.hsc_code}.`
+          content: `The HSC code for "${res.data.description}" is ${res.data.hsc_code}.`
         };
         const newMessagesBot = [...newMessagesUser, reply];
         setSessions(prev => prev.map((sess, idx) => idx === currentSessionIndex ? { ...sess, messages: newMessagesBot } : sess));
       }
     } catch (error) {
+      console.error('sendMessage error', error);
       const errMsg = isBulkMode ? 'Error answering question.' : 'Error fetching HSC code.';
       const errorMsg: Message = { role: 'bot', content: errMsg };
       const newMessagesErr = [...newMessagesUser, errorMsg];
@@ -157,7 +165,7 @@ function App() {
       const workbook = XLSX.read(buf, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const data: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
       // Append HSC Code and Confidence headers
       if (data.length > 0) {
         data[0] = [...data[0], 'HSC Code', 'Confidence'];
@@ -190,7 +198,8 @@ function App() {
   };
 
   return (
-    <div
+    <>
+      <div
       style={{
         position: 'absolute',
         top: 0,
@@ -232,45 +241,83 @@ function App() {
         </div>
         {sidebarOpen && (
           <>
-            <button onClick={handleNewChat} style={{
-              padding: '0.5rem',
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: theme.buttonBackground,
-              color: theme.buttonColor,
-              cursor: 'pointer',
-              fontWeight: 500,
-              textAlign: 'left'
-            }}>
-              + New Chat
-            </button>
-            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {sessions.map((s, i) => (
-                <button
-                  key={s.id}
-                  onClick={() => setCurrentSessionIndex(i)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    const newName = window.prompt('Rename chat', s.name);
-                    if (newName && newName.trim()) {
-                      updateSessionName(i, newName.trim());
-                    }
-                  }}
-                  style={{
-                    textAlign: 'left',
-                    padding: '0.5rem',
-                    borderRadius: '6px',
-                    backgroundColor: i === currentSessionIndex ? theme.buttonBackground : 'transparent',
-                    color: i === currentSessionIndex ? theme.buttonColor : theme.text,
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 500
-                  }}
-                >
-                  {s.name}
-                </button>
-              ))}
+            {/* Navigation Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+              <button 
+                onClick={() => setCurrentView('chat')} 
+                style={{
+                  padding: '0.5rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: currentView === 'chat' ? theme.buttonBackground : 'transparent',
+                  color: currentView === 'chat' ? theme.buttonColor : theme.text,
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  textAlign: 'left'
+                }}
+              >
+                💬 Chat
+              </button>
+              <button 
+                onClick={() => setCurrentView('advanced')} 
+                style={{
+                  padding: '0.5rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: currentView === 'advanced' ? theme.buttonBackground : 'transparent',
+                  color: currentView === 'advanced' ? theme.buttonColor : theme.text,
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  textAlign: 'left'
+                }}
+              >
+                🔍 Advanced Search
+              </button>
             </div>
+            
+            {currentView === 'chat' && (
+              <button onClick={handleNewChat} style={{
+                padding: '0.5rem',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: theme.buttonBackground,
+                color: theme.buttonColor,
+                cursor: 'pointer',
+                fontWeight: 500,
+                textAlign: 'left'
+              }}>
+                + New Chat
+              </button>
+            )}
+            {currentView === 'chat' && (
+              <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {sessions.map((s, i) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setCurrentSessionIndex(i)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      const newName = window.prompt('Rename chat', s.name);
+                      if (newName && newName.trim()) {
+                        updateSessionName(i, newName.trim());
+                      }
+                    }}
+                    style={{
+                      textAlign: 'left',
+                      padding: '0.5rem',
+                      borderRadius: '6px',
+                      backgroundColor: i === currentSessionIndex ? theme.buttonBackground : 'transparent',
+                      color: i === currentSessionIndex ? theme.buttonColor : theme.text,
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 500
+                    }}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -283,7 +330,9 @@ function App() {
         position: 'relative'
       }}>
 
-      {chatStarted ? (
+      {currentView === 'advanced' ? (
+        <AdvancedSearch theme={theme} />
+      ) : chatStarted ? (
         <div style={{
           flex: 1,
           display: 'flex',
@@ -333,20 +382,35 @@ function App() {
               >
                 {darkMode ? '☀️' : '🌙'}
               </button>
-              <button
-                onClick={() => signOut()}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: theme.text,
-                  fontSize: '1.25rem',
-                  cursor: 'pointer',
-                  padding: 0,
-                  marginLeft: '1rem'
-                }}
-              >
-                Logout
-              </button>
+            <button
+              onClick={() => navigate('/')}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: theme.text,
+                fontSize: '1.25rem',
+                cursor: 'pointer',
+                padding: 0,
+                marginLeft: '1rem'
+              }}
+              title="Home"
+            >
+              🏠
+            </button>
+            <button
+              onClick={() => signOut()}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: theme.text,
+                fontSize: '1.25rem',
+                cursor: 'pointer',
+                padding: 0,
+                marginLeft: '1rem'
+              }}
+            >
+              Logout
+            </button>
             </div>
           </div>
           {/* Messages */}
@@ -534,6 +598,8 @@ function App() {
       )}
       </div> {/* end Main chat area */}
     </div>
+    <Footer />
+  </>
   );
 }
 
